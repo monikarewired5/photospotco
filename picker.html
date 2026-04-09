@@ -136,7 +136,7 @@ async function fetchSelectedPhotos() {
 
       console.log("metadata", metadata);
       // 🔹 Send metadata to backend
-      await fetch("http://localhost:3001/save-metadata", {
+      await fetch("/save-metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(metadata)
@@ -251,7 +251,7 @@ const subdomain = prompt("Choose your gallery URL (subdomain)");
 if (!subdomain) return;
 
 
-const res = await fetch("http://localhost:3001/publish-album", {
+const res = await fetch("/publish-album", {
   method: "POST",
   headers: {
     "Content-Type": "application/json"
@@ -279,7 +279,7 @@ const subdomain = prompt("Choose your gallery URL (subdomain)");
 if (!subdomain) return;
 
 
-const res = await fetch("http://localhost:3001/view-album", {
+const res = await fetch("/view-album", {
   method: "POST",
   headers: {
     "Content-Type": "application/json"

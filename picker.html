@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photo Gallery</title>
+  <script src="https://accounts.google.com/gsi/client"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+
+    #gallery {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 200px);
+      gap: 15px;
+    }
+
+    #gallery img {
+      width: 200px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Select Photos</h2>
+  <button onclick="startAuth()">Pick Photos</button>
+  <button onclick="publishAlbum()">Publish Album</button>
+  <button onclick="viewAlbum()">View Album</button>
+  <div id="gallery"></div>
+
+  <script>
+   const CLIENT_ID = "971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com";
+   const SCOPES = "https://www.googleapis.com/auth/photospicker.mediaitems.readonly";
+
+   let accessToken = null;
+   let sessionId = null;
+   let pickerWindow = null;
+
+
+   function startAuth() {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: (tokenResponse) => {
+        accessToken = tokenResponse.access_token;
+        createPickerSession();
+      },
+    });
+    console.log("new accessToken", accessToken);
+    tokenClient.requestAccessToken({
+      prompt: '',
+      login_hint: 'monika.agarwal1990@gmail.com'  // prevents account chooser
+    });
+  }
+
+  async function createPickerSession() {
+    try {
+      const res = await fetch("https://photospicker.googleapis.com/v1/sessions", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      const session = await res.json();
+      // log(session);
+      sessionId = session.id;
+
+      pickerWindow = window.open(session.pickerUri, "GooglePhotosPicker", "width=1000,height=800");
+      pollUntilUserFinishes();
+    } catch (err) {
+      console.error(err);
+      //log({ error: err.message });
+    }
+  }
+
+  function pollUntilUserFinishes() {
+    const interval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(
+            `https://photospicker.googleapis.com/v1/sessions/${sessionId}`,
+            { headers: { Authorization: "Bearer " + accessToken } }
+          );
+          const statusData = await statusRes.json();
+          // log(statusData);
+
+          if (!statusData.mediaItemsSet) return;
+
+          clearInterval(interval);
+          pickerWindow.close();
+          fetchSelectedPhotos();
+        } catch (err) {
+          console.error(err);
+          // log({ error: "Error polling session", details: err.message });
+          clearInterval(interval);
+        }
+      }, 2000);
+  }
+
+async function fetchSelectedPhotos() {
+    try {
+      const res = await await fetch(
+          `https://photospicker.googleapis.com/v1/mediaItems?sessionId=${sessionId}`,
+          { headers: { Authorization: "Bearer " + accessToken } }
+        );
+      console.log("Backend status:", res.status);
+      const data = await res.json();
+      //log(data);
+
+      console.log("data", data);
+      if (!data.mediaItems || data.mediaItems.length === 0) {
+        alert("No photos selected");
+        return;
+      }
+
+      console.log("data.mediaItems", data.mediaItems);
+      // 🔹 Extract metadata only
+      const metadata = data.mediaItems.map(item => ({
+        id: item.id,
+        baseUrl: item.mediaFile.baseUrl,
+        filename: item.mediaFile.filename,
+        mimeType: item.mediaFile.mimeType,
+        accessToken: accessToken
+      }));
+
+      console.log("metadata", metadata);
+      // 🔹 Send metadata to backend
+      await fetch("http://localhost:3001/save-metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(metadata)
+      });
+
+      alert("Metadata stored successfully");
+
+      alert("Photos downloaded successfully");
+
+      loadGallery(accessToken);
+    } catch (err) {
+      console.error(err);
+      //log({ error: "Error fetching photos", details: err.message });
+    }
+  }
+
+  async function downloadPhotos(mediaItems, subdomain) {
+  try {
+
+      const res = await fetch("/api/download-photo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: subdomain,
+          mediaItems: mediaItems,
+          accessToken: accessToken,
+        }),
+      });
+
+      const data = await res.json();
+      console.log("All photos downloaded");
+
+  } catch (err) {
+    console.error("Download error:", err);
+  }
+}
+
+
+
+async function showGallery(photos, accessToken) {
+  console.log("photos", photos);
+  console.log("accessToken", accessToken);
+  const gallery = document.getElementById("gallery");
+  gallery.innerHTML = "";
+
+  for (const item of photos) {
+    const thumbUrl = item.baseUrl + "=w600-h600";
+
+    // 🔹 Fetch thumbnail with Authorization header
+    const thumbRes = await fetch(thumbUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    const thumbBlob = await thumbRes.blob();
+    const thumbObjectUrl = URL.createObjectURL(thumbBlob);
+
+    const div = document.createElement("div");
+    div.className = "photo";
+
+    const img = document.createElement("img");
+    img.src = thumbObjectUrl;
+
+    // 🔹 Fetch full image on click (also authenticated)
+    img.onclick = async () => {
+      const fullUrl = item.baseUrl + "=w2000-h2000";
+      const fullRes = await fetch(fullUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      const fullBlob = await fullRes.blob();
+      const fullObjectUrl = URL.createObjectURL(fullBlob);
+      window.open(fullObjectUrl, "_blank");
+    };
+
+    div.appendChild(img);
+    gallery.appendChild(div);
+  }
+}
+
+async function loadPhotos() {
+
+try {
+
+
+  const res = await fetch("/backend/photos.json");
+
+  if (!res.ok) {
+    return []; // file does not exist
+  }
+
+  return await res.json();
+
+} catch (err) {
+  console.error("Error loading photos:", err);
+  return [];
+}
+
+}
+
+async function loadGallery(accessToken) {
+  const photos = await loadPhotos();
+  showGallery(photos, accessToken);
+}
+
+async function publishAlbum() {
+
+const subdomain = prompt("Choose your gallery URL (subdomain)");
+
+
+if (!subdomain) return;
+
+
+const res = await fetch("http://localhost:3001/publish-album", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({ subdomain: subdomain,
+          accessToken: accessToken, })
+});
+
+const data = await res.json();
+
+if (data.success) {
+    sessionStorage.setItem("accessToken", accessToken);
+    window.location.href = `http://monika.photospot.com:3000/gallery.html`;
+} else {
+    alert("Publish Album failed");
+}
+
+}
+
+async function viewAlbum() {
+
+const subdomain = prompt("Choose your gallery URL (subdomain)");
+
+
+if (!subdomain) return;
+
+
+const res = await fetch("http://localhost:3001/view-album", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({ subdomain: subdomain,
+          accessToken: accessToken, })
+});
+
+const data = await res.json();
+
+if (data.success) {
+    sessionStorage.setItem("accessToken", accessToken);
+    window.location.href = `http://monika.photospot.com:3000/gallery.html`;
+} else {
+    alert("Publish Album failed");
+}
+
+}
+
+</script>
+
+  
+</body>
+</html>

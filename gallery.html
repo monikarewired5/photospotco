@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photo Gallery</title>
+  <script src="https://accounts.google.com/gsi/client"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+
+    #gallery {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 200px);
+      gap: 15px;
+    }
+
+    #gallery img {
+      width: 200px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="gallery"></div>
+
+  <script>
+  const accessToken = sessionStorage.getItem("accessToken");
+
+  window.onload = showGallery;
+   
+  async function showGallery() {
+    try {
+      const host = window.location.hostname;
+      const parts = host.split(".");
+      const subdomain = parts.length > 2 ? parts[0] : null;
+
+      const res = await fetch(`http://localhost:3001/api/list-photos?subdomain=${subdomain}`);
+      const photos = await res.json();
+
+      console.log("photos:", photos);
+
+      const gallery = document.getElementById("gallery");
+      gallery.innerHTML = "";
+
+      if (!photos.length) {
+        gallery.innerHTML = "<p>No photos found</p>";
+        return;
+      }
+
+      for (const item of photos) {
+        const div = document.createElement("div");
+        div.className = "photo";
+
+        const img = document.createElement("img");
+        img.src = item.url; // ✅ local image
+        console.log("image src :", img.src)
+        img.style.width = "200px";
+        img.style.margin = "5px";
+
+        // optional: open full image
+        img.onclick = () => {
+          window.open(item.url, "_blank");
+        };
+
+        div.appendChild(img);
+        gallery.appendChild(div);
+      }
+
+    } catch (err) {
+      console.error("Gallery load error:", err);
+    }
+  }
+
+
+
+</script>
+
+  
+</body>
+</html>

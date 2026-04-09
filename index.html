@@ -1,179 +1,40 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Google Photos Gallery</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-  <style>
-    body { font-family: Arial; margin: 40px; background: #fafafa; }
-    button { padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background: #4285F4; color: white; }
-    #gallery { margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-    .photo { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: 0.2s; }
-    .photo:hover { transform: scale(1.03); }
-    img { width: 100%; display: block; }
-    #debug { background:#111;color:#0f0;padding:10px;margin-top:20px;height:200px;overflow:auto; white-space: pre-wrap; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photospotco</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+    <h2>Login to Photospotco</h2>
+    <div id="g_id_onload"
+     data-client_id="971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com"
+     data-callback="handleCredentialResponse"></div>
+    <div class="g_id_signin" data-type="standard"></div>
 
-<h1>📸 My Google Photos Gallery</h1>
-<button onclick="startAuth()">Pick Photos from Google Photos</button>
-<pre id="debug"></pre>
-<div id="gallery"></div>
+    <script>
 
-<script>
-const CLIENT_ID = "971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com";
-const SCOPES = "https://www.googleapis.com/auth/photospicker.mediaitems.readonly";
-
-let accessToken = null;
-let sessionId = null;
-let pickerWindow = null;
-
-function log(msg) {
-  const el = document.getElementById("debug");
-  el.textContent += "\n" + JSON.stringify(msg, null, 2);
-}
-
-function startAuth() {
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: (tokenResponse) => {
-      accessToken = tokenResponse.access_token;
-      createPickerSession();
-    },
-  });
-  tokenClient.requestAccessToken();
-}
-
-async function createPickerSession() {
-  try {
-    const res = await fetch("https://photospicker.googleapis.com/v1/sessions", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
-      body: JSON.stringify({})
-    });
-    const session = await res.json();
-    log(session);
-    sessionId = session.id;
-
-    pickerWindow = window.open(session.pickerUri, "GooglePhotosPicker", "width=1000,height=800");
-    pollUntilUserFinishes();
-  } catch (err) {
-    console.error(err);
-    log({ error: err.message });
-  }
-}
-
-function pollUntilUserFinishes() {
-  const interval = setInterval(async () => {
-    try {
-      const statusRes = await fetch(
-        `https://photospicker.googleapis.com/v1/sessions/${sessionId}`,
-        { headers: { Authorization: "Bearer " + accessToken } }
-      );
-      const statusData = await statusRes.json();
-      log(statusData);
-
-      if (!statusData.mediaItemsSet) return;
-
-      clearInterval(interval);
-      pickerWindow.close();
-      fetchSelectedPhotos();
-    } catch (err) {
-      console.error(err);
-      log({ error: "Error polling session", details: err.message });
-      clearInterval(interval);
-    }
-  }, 2000);
-}
-
-// async function fetchSelectedPhotos() {
-//   try {
-//     const res = await fetch("/fetch-selected", {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({ sessionId, accessToken })
-//     });
-//     console.log("Backend status:", res.status);
-//     const data = await res.json();
-//     log(data);
-
-//     console.log("data", data);
-//     if (!data.mediaItems || data.mediaItems.length === 0) {
-//       alert("No photos selected");
-//       return;
-//     }
-
-//     showGallery(data.mediaItems);
-//   } catch (err) {
-//     console.error(err);
-//     log({ error: "Error fetching photos", details: err.message });
-//   }
-// }
-
-async function fetchSelectedPhotos() {
-  try {
-    const res = await await fetch(
-        `https://photospicker.googleapis.com/v1/mediaItems?sessionId=${sessionId}`,
-        { headers: { Authorization: "Bearer " + accessToken } }
-      );
-    console.log("Backend status:", res.status);
-    const data = await res.json();
-    log(data);
-
-    console.log("data", data);
-    if (!data.mediaItems || data.mediaItems.length === 0) {
-      alert("No photos selected");
-      return;
-    }
-
-    showGallery(data.mediaItems, accessToken);
-  } catch (err) {
-    console.error(err);
-    log({ error: "Error fetching photos", details: err.message });
-  }
-}
-
-async function showGallery(mediaItems, accessToken) {
-  const gallery = document.getElementById("gallery");
-  gallery.innerHTML = "";
-
-  for (const item of mediaItems) {
-    const thumbUrl = item.mediaFile.baseUrl + "=w600-h600";
-
-    // 🔹 Fetch thumbnail with Authorization header
-    const thumbRes = await fetch(thumbUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-
-    const thumbBlob = await thumbRes.blob();
-    const thumbObjectUrl = URL.createObjectURL(thumbBlob);
-
-    const div = document.createElement("div");
-    div.className = "photo";
-
-    const img = document.createElement("img");
-    img.src = thumbObjectUrl;
-
-    // 🔹 Fetch full image on click (also authenticated)
-    img.onclick = async () => {
-      const fullUrl = item.mediaFile.baseUrl + "=w2000-h2000";
-      const fullRes = await fetch(fullUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-
-      const fullBlob = await fullRes.blob();
-      const fullObjectUrl = URL.createObjectURL(fullBlob);
-      window.open(fullObjectUrl, "_blank");
-    };
-
-    div.appendChild(img);
-    gallery.appendChild(div);
-  }
-}
-
-</script>
+        function handleCredentialResponse(response) {
+            console.log("Encoded JWT ID token: " + response.credential);
+        
+            fetch('http://localhost:3001/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: response.credential })
+            })
+            .then(res => {return res.json();})
+            .then(data => {
+                console.log("Login successful: ", data);
+                if (data.success) {
+                    window.location.href = "/picker.html";
+                } else {
+                    alert("Login failed: " + data.message);
+                }
+            });
+        }
+        
+        </script>
 
 </body>
 </html>

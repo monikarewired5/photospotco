@@ -10,7 +10,7 @@ const axios = require("axios");
 
 app.use(cors());
 app.use(express.json());
-app.use("/api/galleries", express.static(path.join(__dirname, "galleries")));
+app.use("/galleries", express.static(path.join(__dirname, "galleries")));
 
 const CLIENT_ID = '971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com';
 

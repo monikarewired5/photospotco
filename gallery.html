@@ -48,7 +48,7 @@
       const parts = host.split(".");
       const subdomain = parts.length > 2 ? parts[0] : null;
 
-      const res = await fetch(`http://localhost:3001/api/list-photos?subdomain=${subdomain}`);
+      const res = await fetch(`/api/list-photos?subdomain=${subdomain}`);
       const photos = await res.json();
 
       console.log("photos:", photos);

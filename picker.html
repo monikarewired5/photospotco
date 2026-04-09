@@ -136,7 +136,7 @@ async function fetchSelectedPhotos() {
 
       console.log("metadata", metadata);
       // 🔹 Send metadata to backend
-      await fetch("/save-metadata", {
+      await fetch("/api/save-metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(metadata)
@@ -223,7 +223,7 @@ async function loadPhotos() {
 try {
 
 
-  const res = await fetch("/backend/photos.json");
+  const res = await fetch("/api/backend/photos.json");
 
   if (!res.ok) {
     return []; // file does not exist
@@ -251,7 +251,7 @@ const subdomain = prompt("Choose your gallery URL (subdomain)");
 if (!subdomain) return;
 
 
-const res = await fetch("/publish-album", {
+const res = await fetch("/api/publish-album", {
   method: "POST",
   headers: {
     "Content-Type": "application/json"
@@ -279,7 +279,7 @@ const subdomain = prompt("Choose your gallery URL (subdomain)");
 if (!subdomain) return;
 
 
-const res = await fetch("/view-album", {
+const res = await fetch("/api/view-album", {
   method: "POST",
   headers: {
     "Content-Type": "application/json"

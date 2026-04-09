@@ -10,14 +10,14 @@ const axios = require("axios");
 
 app.use(cors());
 app.use(express.json());
-app.use("/galleries", express.static(path.join(__dirname, "galleries")));
+app.use("/api/galleries", express.static(path.join(__dirname, "galleries")));
 
 const CLIENT_ID = '971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com';
 
 
 const oauth2Client = new OAuth2Client(CLIENT_ID);
 
-app.post('/auth/google', async(req, res) => {
+app.post('/api/auth/google', async(req, res) => {
     const { token } = req.body;
     try {
         const ticket = await oauth2Client.verifyIdToken({
@@ -47,7 +47,7 @@ app.post('/auth/google', async(req, res) => {
 
 
 
-app.post("/save-metadata", (req, res) => {
+app.post("'/api/save-metadata", (req, res) => {
 
     const newPhotos = req.body;
     metadataFile = "./photos.json";
@@ -83,7 +83,7 @@ app.post("/save-metadata", (req, res) => {
   });
 
 
-  app.post("/download-photos", async (req, res) => {
+  app.post("'/api/download-photos", async (req, res) => {
     try {
       const { subdomain, mediaItems } = req.body;
   
@@ -166,7 +166,7 @@ async function downloadPhoto({ item, folder }) {
 }
 
 
-  app.get("/gallery", (req, res) => {
+  app.get("'/api/gallery", (req, res) => {
 
     const subdomain = req.query.subdomain;
 
@@ -187,7 +187,7 @@ async function downloadPhoto({ item, folder }) {
     res.json(photos);
   });
 
-  app.post("/publish-album", async (req, res) => {
+  app.post("'/api/publish-album", async (req, res) => {
     try {
       const { subdomain, accessToken } = req.body;
   
@@ -238,7 +238,7 @@ async function downloadPhoto({ item, folder }) {
     }
   });
 
-  app.post("/view-album", async (req, res) => {
+  app.post("'/api/view-album", async (req, res) => {
     try {
       const { subdomain, accessToken } = req.body;
 

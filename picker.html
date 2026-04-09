@@ -223,7 +223,7 @@ async function loadPhotos() {
 try {
 
 
-  const res = await fetch("/api/backend/photos.json");
+  const res = await fetch("/backend/photos.json");
 
   if (!res.ok) {
     return []; // file does not exist

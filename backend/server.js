@@ -47,7 +47,7 @@ app.post('/api/auth/google', async(req, res) => {
 
 
 
-app.post("'/api/save-metadata", (req, res) => {
+app.post("/api/save-metadata", (req, res) => {
 
     const newPhotos = req.body;
     metadataFile = "./photos.json";
@@ -83,7 +83,7 @@ app.post("'/api/save-metadata", (req, res) => {
   });
 
 
-  app.post("'/api/download-photos", async (req, res) => {
+  app.post("/api/download-photos", async (req, res) => {
     try {
       const { subdomain, mediaItems } = req.body;
   
@@ -166,7 +166,7 @@ async function downloadPhoto({ item, folder }) {
 }
 
 
-  app.get("'/api/gallery", (req, res) => {
+  app.get("/api/gallery", (req, res) => {
 
     const subdomain = req.query.subdomain;
 
@@ -187,7 +187,7 @@ async function downloadPhoto({ item, folder }) {
     res.json(photos);
   });
 
-  app.post("'/api/publish-album", async (req, res) => {
+  app.post("/api/publish-album", async (req, res) => {
     try {
       const { subdomain, accessToken } = req.body;
   
@@ -238,7 +238,7 @@ async function downloadPhoto({ item, folder }) {
     }
   });
 
-  app.post("'/api/view-album", async (req, res) => {
+  app.post("/api/view-album", async (req, res) => {
     try {
       const { subdomain, accessToken } = req.body;
 

@@ -227,7 +227,7 @@ async function downloadPhoto({ item, folder }) {
     res.json(photos);
   });
 
-  app.post("/publish-album", async (req, res) => {
+  app.post("/api/publish-album", async (req, res) => {
     try {
       const { subdomain, accessToken } = req.body;
   

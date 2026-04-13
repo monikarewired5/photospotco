@@ -87,7 +87,8 @@ app.get("/api/get-metadata", (req, res) => {
 
   console.log("i am in get-metadata");
 
-  metadataFile = "./monika/monika.json";
+  const { subdomain } = req.body;
+  metadataFile = `./${subdomain}/${subdomain}.json`;
   
   try {
     // 🔹 If file doesn't exist, return empty array

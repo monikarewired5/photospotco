@@ -83,7 +83,7 @@ app.post("/api/save-metadata", (req, res) => {
   });
 
  // ✅ GET metadata
-app.get("/get-metadata", (req, res) => {
+app.get("/api/get-metadata", (req, res) => {
 
   console.log("i am in get-metadata");
 

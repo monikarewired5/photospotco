@@ -87,7 +87,7 @@ app.get("/get-metadata", (req, res) => {
 
   console.log("i am in get-metadata");
 
-  metadataFile = "./photos.json";
+  metadataFile = "./monika/monika.json";
   
   try {
     // 🔹 If file doesn't exist, return empty array
@@ -226,7 +226,7 @@ async function downloadPhoto({ item, folder }) {
     res.json(photos);
   });
 
-  app.post("/api/publish-album", async (req, res) => {
+  app.post("/publish-album", async (req, res) => {
     try {
       const { subdomain, accessToken } = req.body;
   
@@ -240,7 +240,12 @@ async function downloadPhoto({ item, folder }) {
       }
   
       // ✅ Read selected photos
-      const photos = JSON.parse(fs.readFileSync(photosFile));
+      const photos = JSON.parse(fs.readFileSync(photosFile, "utf8"));
+  
+      // ✅ Ensure folder exists (FIXED ORDER)
+      if (!fs.existsSync(galleryFolder)) {
+        fs.mkdirSync(galleryFolder, { recursive: true });
+      }
   
       // ✅ Save metadata per subdomain
       fs.writeFileSync(
@@ -248,27 +253,19 @@ async function downloadPhoto({ item, folder }) {
         JSON.stringify(photos, null, 2)
       );
   
-      // ✅ Ensure folder exists
-      if (!fs.existsSync(galleryFolder)) {
-        fs.mkdirSync(galleryFolder, { recursive: true });
+      // 🔥 DELETE photos.json after successful publish
+      try {
+        fs.unlinkSync(photosFile);
+        console.log("photos.json deleted after publish");
+      } catch (deleteErr) {
+        console.error("Failed to delete photos.json:", deleteErr);
+        // Not blocking response — publish already succeeded
       }
-  
-      // 🔥 Download all photos
-      // const galleryPhotos = JSON.parse(fs.readFileSync(galleryFile));
-      // const results = await Promise.all(
-      //   galleryPhotos.map(item =>
-      //     downloadPhoto({
-      //       item,
-      //       folder: galleryFolder
-      //     })
-      //   )
-      // );
   
       // 🚀 Response
       res.json({
         success: true,
-        url: `${subdomain}.photospotco.com`//,
-        // filesDownloaded: results.length
+        url: `${subdomain}.photospotco.com`
       });
   
     } catch (err) {

@@ -82,6 +82,45 @@ app.post("/api/save-metadata", (req, res) => {
   
   });
 
+ // ✅ GET metadata
+app.get("/get-metadata", (req, res) => {
+
+  console.log("i am in get-metadata");
+
+  metadataFile = "./photos.json";
+  
+  try {
+    // 🔹 If file doesn't exist, return empty array
+    if (!fs.existsSync(metadataFile)) {
+      return res.json({
+        status: "success",
+        data: [],
+        totalPhotos: 0
+      });
+    }
+
+    // 🔹 Read file
+    const data = fs.readFileSync(metadataFile, "utf8");
+
+    // 🔹 Parse JSON safely
+    const photos = data ? JSON.parse(data) : [];
+
+    res.json({
+      status: "success",
+      data: photos,
+      totalPhotos: photos.length
+    });
+
+  } catch (error) {
+    console.error("Error reading metadata:", error);
+
+    res.status(500).json({
+      status: "error",
+      message: "Failed to fetch metadata"
+    });
+  }
+});
+
 
   app.post("/api/download-photos", async (req, res) => {
     try {
@@ -215,21 +254,21 @@ async function downloadPhoto({ item, folder }) {
       }
   
       // 🔥 Download all photos
-      const galleryPhotos = JSON.parse(fs.readFileSync(galleryFile));
-      const results = await Promise.all(
-        galleryPhotos.map(item =>
-          downloadPhoto({
-            item,
-            folder: galleryFolder
-          })
-        )
-      );
+      // const galleryPhotos = JSON.parse(fs.readFileSync(galleryFile));
+      // const results = await Promise.all(
+      //   galleryPhotos.map(item =>
+      //     downloadPhoto({
+      //       item,
+      //       folder: galleryFolder
+      //     })
+      //   )
+      // );
   
       // 🚀 Response
       res.json({
         success: true,
-        url: `${subdomain}.photospotco.com`,
-        filesDownloaded: results.length
+        url: `${subdomain}.photospotco.com`//,
+        // filesDownloaded: results.length
       });
   
     } catch (err) {

@@ -247,17 +247,6 @@ const subdomain = prompt("Choose your gallery URL (subdomain)");
 
 if (!subdomain) return;
 
-const resp = await fetch("/api/get-metadata", {
-  method: "GET",
-  headers: {
-    "Content-Type": "application/json"
-  }
-});
-
-const metadata = await resp.json();
-
-downloadPhotos(metadata, subdomain);
-
 const res = await fetch("/api/publish-album", {
   method: "POST",
   headers: {
@@ -271,6 +260,17 @@ const data = await res.json();
 
 if (data.success) {
     sessionStorage.setItem("accessToken", accessToken);
+    const resp = await fetch("/api/get-metadata", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ subdomain: subdomain})
+    });
+    
+    const metadata = await resp.json();
+    
+    downloadPhotos(metadata, subdomain);
     window.location.href = `http://www.photospotco.com/gallery.html`;
 } else {
     alert("Publish Album failed");

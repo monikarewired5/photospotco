@@ -258,7 +258,7 @@ const res = await fetch("/api/publish-album", {
 
 const data = await res.json();
 
-if (data.success) {
+// if (data.success) {
     sessionStorage.setItem("accessToken", accessToken);
     const resp = await fetch("/api/get-metadata", {
       method: "POST",
@@ -272,9 +272,9 @@ if (data.success) {
     
     downloadPhotos(metadata, subdomain);
     window.location.href = `http://www.photospotco.com/gallery.html?subdomain=${subdomain}`;
-} else {
-    alert("Publish Album failed");
-}
+// } else {
+//     alert("Publish Album failed");
+// }
 
 }
 

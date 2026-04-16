@@ -40,16 +40,19 @@
   <script>
   const accessToken = sessionStorage.getItem("accessToken");
 
-  window.onload = showGallery;
+  window.onload = showGalleryR2;
    
   async function showGallery() {
     try {
       // const host = window.location.hostname;
       // const parts = host.split(".");
       // const subdomain = parts.length > 2 ? parts[0] : null;
-
       // const res = await fetch(`/api/list-photos?subdomain=${subdomain}`);
-      const res = await fetch(`/api/list-photos?subdomain=monika`);
+
+      const params = new URLSearchParams(window.location.search);
+      const subdomain = params.get('subdomain');
+      
+      const res = await fetch(`/api/list-photos?subdomain=${subdomain}`);
       const photos = await res.json();
 
       console.log("photos:", photos);
@@ -86,6 +89,50 @@
     }
   }
 
+  async function showGalleryR2() {
+    try {
+      // const host = window.location.hostname;
+      // const parts = host.split(".");
+      // const subdomain = parts.length > 2 ? parts[0] : null;
+      const params = new URLSearchParams(window.location.search);
+      const subdomain = params.get('subdomain');
+
+      const res = await fetch(`http://localhost:3001/api/list-photos-r2?subdomain=${subdomain}`);
+      const photos = await res.json();
+
+      console.log("photos:", photos);
+
+      const gallery = document.getElementById("gallery");
+      gallery.innerHTML = "";
+
+      if (!photos.length) {
+        gallery.innerHTML = "<p>No photos found</p>";
+        return;
+      }
+
+      for (const item of photos) {
+        const div = document.createElement("div");
+        div.className = "photo";
+
+        const img = document.createElement("img");
+        img.src = item.url; // ✅ local image
+        console.log("image src :", img.src)
+        img.style.width = "200px";
+        img.style.margin = "5px";
+
+        // optional: open full image
+        img.onclick = () => {
+          window.open(item.url, "_blank");
+        };
+
+        div.appendChild(img);
+        gallery.appendChild(div);
+      }
+
+    } catch (err) {
+      console.error("Gallery load error:", err);
+    }
+  }  
 
 
 </script>

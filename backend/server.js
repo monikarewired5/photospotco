@@ -1,12 +1,17 @@
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { GetObjectCommand, ListObjectsV2Command } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const dotenv = require('dotenv');
+
 const express = require('express');
 const { OAuth2Client } = require('google-auth-library');
 const cors = require('cors');
-const { google } = require("googleapis");
 
 const app = express();
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
+dotenv.config();
 
 app.use(cors());
 app.use(express.json());
@@ -159,43 +164,61 @@ async function downloadPhoto({ item, folder }) {
     const filename = `${item.id}.jpg`; // safer naming
     const filepath = path.join(folder, filename);
 
-    console.log("Downloading:", url);
+    console.log("Downloading photo");
 
     const response = await axios({
       url,
       method: "GET",
-      responseType: "stream",
+      responseType: "arraybuffer",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       timeout: 20000,
     });
 
-    // ✅ Ensure folder exists
-    if (!fs.existsSync(folder)) {
-      fs.mkdirSync(folder, { recursive: true });
-    }
+    console.log("Uploading to R2");
+    console.log("end-point: ", process.env.R2_ENDPOINT)
 
-    const writer = fs.createWriteStream(filepath);
+    const buffer = Buffer.from(response.data);
 
-    // Pipe stream
-    response.data.pipe(writer);
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: `albums/monika/${Date.now()}_${filename}`,
+      Body: buffer, // 👈 stream directly
+      ContentType: response.headers.get("content-type"),
+    });
+    
+    console.log("Uploaded to R2");
+
+    await s3.send(command);
+
+    res.send("Uploaded to R2");
+
+    // // ✅ Ensure folder exists
+    // if (!fs.existsSync(folder)) {
+    //   fs.mkdirSync(folder, { recursive: true });
+    // }
+
+    // const writer = fs.createWriteStream(filepath);
+
+    // // Pipe stream
+    // response.data.pipe(writer);
 
     // ✅ Proper stream handling
-    await new Promise((resolve, reject) => {
-      writer.on("finish", () => {
-        console.log("Saved:", filename);
-        resolve();
-      });
-      writer.on("error", (err) => {
-        console.error("Write error:", err);
-        reject(err);
-      });
-      response.data.on("error", (err) => {
-        console.error("Stream error:", err);
-        reject(err);
-      });
-    });
+    // await new Promise((resolve, reject) => {
+    //   writer.on("finish", () => {
+    //     console.log("Saved:", filename);
+    //     resolve();
+    //   });
+    //   writer.on("error", (err) => {
+    //     console.error("Write error:", err);
+    //     reject(err);
+    //   });
+    //   response.data.on("error", (err) => {
+    //     console.error("Stream error:", err);
+    //     reject(err);
+    //   });
+    // });
 
     return { filename, success: true };
 
@@ -206,74 +229,74 @@ async function downloadPhoto({ item, folder }) {
 }
 
 
-  app.get("/api/gallery", (req, res) => {
+app.get("/api/gallery", (req, res) => {
 
-    const subdomain = req.query.subdomain;
+const subdomain = req.query.subdomain;
 
-    console.log(`gallery subdomain: ${subdomain}`);
-  
-    if (!subdomain) {
-      return res.send("No gallery found");
-    }
-  
-    const galleryFile = path.join(__dirname, "galleries", `${subdomain}.json`);
-  
-    if (!fs.existsSync(galleryFile)) {
-      return res.send("Gallery not found");
-    }
-  
-    const photos = JSON.parse(fs.readFileSync(galleryFile));
-  
-    res.json(photos);
+console.log(`gallery subdomain: ${subdomain}`);
+
+if (!subdomain) {
+  return res.send("No gallery found");
+}
+
+const galleryFile = path.join(__dirname, "galleries", `${subdomain}.json`);
+
+if (!fs.existsSync(galleryFile)) {
+  return res.send("Gallery not found");
+}
+
+const photos = JSON.parse(fs.readFileSync(galleryFile));
+
+res.json(photos);
+});
+
+app.post("/api/publish-album", async (req, res) => {
+try {
+  const { subdomain, accessToken } = req.body;
+
+  const photosFile = path.join(__dirname, "photos.json");
+  const galleryFolder = path.join(__dirname, "galleries", subdomain);
+  const galleryFile = path.join(galleryFolder, `${subdomain}.json`);
+
+  // ❌ No photos file
+  if (!fs.existsSync(photosFile)) {
+    return res.json({ success: false, error: "No photos found" });
+  }
+
+  // ✅ Read selected photos
+  const photos = JSON.parse(fs.readFileSync(photosFile, "utf8"));
+
+  // ✅ Ensure folder exists (FIXED ORDER)
+  if (!fs.existsSync(galleryFolder)) {
+    fs.mkdirSync(galleryFolder, { recursive: true });
+  }
+
+  // ✅ Save metadata per subdomain
+  fs.writeFileSync(
+    galleryFile,
+    JSON.stringify(photos, null, 2)
+  );
+
+  // 🔥 DELETE photos.json after successful publish
+  try {
+    fs.unlinkSync(photosFile);
+    console.log("photos.json deleted after publish");
+  } catch (deleteErr) {
+    console.error("Failed to delete photos.json:", deleteErr);
+    // Not blocking response — publish already succeeded
+  }
+
+  // 🚀 Response
+  res.json({
+    success: true,
+    url: `${subdomain}.photospotco.com`
   });
 
-  app.post("/api/publish-album", async (req, res) => {
-    try {
-      const { subdomain, accessToken } = req.body;
-  
-      const photosFile = path.join(__dirname, "photos.json");
-      const galleryFolder = path.join(__dirname, "galleries", subdomain);
-      const galleryFile = path.join(galleryFolder, `${subdomain}.json`);
-  
-      // ❌ No photos file
-      if (!fs.existsSync(photosFile)) {
-        return res.json({ success: false, error: "No photos found" });
-      }
-  
-      // ✅ Read selected photos
-      const photos = JSON.parse(fs.readFileSync(photosFile, "utf8"));
-  
-      // ✅ Ensure folder exists (FIXED ORDER)
-      if (!fs.existsSync(galleryFolder)) {
-        fs.mkdirSync(galleryFolder, { recursive: true });
-      }
-  
-      // ✅ Save metadata per subdomain
-      fs.writeFileSync(
-        galleryFile,
-        JSON.stringify(photos, null, 2)
-      );
-  
-      // 🔥 DELETE photos.json after successful publish
-      try {
-        fs.unlinkSync(photosFile);
-        console.log("photos.json deleted after publish");
-      } catch (deleteErr) {
-        console.error("Failed to delete photos.json:", deleteErr);
-        // Not blocking response — publish already succeeded
-      }
-  
-      // 🚀 Response
-      res.json({
-        success: true,
-        url: `${subdomain}.photospotco.com`
-      });
-  
-    } catch (err) {
-      console.error("Publish error:", err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
+} catch (err) {
+  console.error("Publish error:", err);
+  res.status(500).json({ success: false, error: err.message });
+}
+});
 
   app.post("/api/view-album", async (req, res) => {
     try {
@@ -341,6 +364,51 @@ async function downloadPhoto({ item, folder }) {
   
     } catch (err) {
       console.error("list-photos error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+app.get("/api/list-photos-r2", async (req, res) => {
+    try {
+      const subdomain = req.query.subdomain;
+  
+      if (!subdomain) {
+        return res.status(400).json({ error: "Missing subdomain" });
+      }
+
+      // 1️⃣ List all objects in bucket
+      const listCommand = new ListObjectsV2Command({
+        Bucket: process.env.R2_BUCKET,
+            Prefix: `albums/${subdomain}/`
+      });
+
+      const listResponse = await s3.send(listCommand);
+
+      const files = listResponse.Contents || [];
+
+      // 2️⃣ Generate signed URLs for each file
+      const photos = await Promise.all(
+        files.map(async (obj) => {
+          const getCommand = new GetObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: obj.Key,
+          });
+
+          const signedUrl = await getSignedUrl(s3, getCommand, {
+            expiresIn: 300, // 5 minutes
+          });
+
+          return {
+            key: obj.Key,
+            url: signedUrl, // 👈 this is what you wanted
+          };
+        })
+      );
+  
+      res.json(photos);
+  
+    } catch (err) {
+      console.error("list-photos-r2 error:", err);
       res.status(500).json({ error: err.message });
     }
   });

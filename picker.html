@@ -161,7 +161,7 @@ async function fetchSelectedPhotos() {
         },
         body: JSON.stringify({
           subdomain: subdomain,
-          mediaItems: mediaItems,
+          mediaItems: mediaItems.data,
           accessToken: accessToken,
         }),
       });

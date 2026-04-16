@@ -154,13 +154,13 @@ async function fetchSelectedPhotos() {
   async function downloadPhotos(mediaItems, subdomain) {
   try {
 
-      const res = await fetch("/api/download-photo", {
+      const res = await fetch("/api/download-photos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: subdomain,
+          subdomain: subdomain,
           mediaItems: mediaItems,
           accessToken: accessToken,
         }),
@@ -271,7 +271,7 @@ if (data.success) {
     const metadata = await resp.json();
     
     downloadPhotos(metadata, subdomain);
-    window.location.href = `http://www.photospotco.com/gallery.html`;
+    window.location.href = `http://www.photospotco.com/gallery.html?subdomain=${subdomain}`;
 } else {
     alert("Publish Album failed");
 }
@@ -286,23 +286,23 @@ const subdomain = prompt("Choose your gallery URL (subdomain)");
 if (!subdomain) return;
 
 
-const res = await fetch("/api/view-album", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ subdomain: subdomain,
-          accessToken: accessToken, })
-});
+// const res = await fetch("/api/view-album", {
+//   method: "POST",
+//   headers: {
+//     "Content-Type": "application/json"
+//   },
+//   body: JSON.stringify({ subdomain: subdomain,
+//           accessToken: accessToken, })
+// });
 
-const data = await res.json();
+// const data = await res.json();
 
-if (data.success) {
+// if (data.success) {
     sessionStorage.setItem("accessToken", accessToken);
-    window.location.href = `http://www.photospotco.com/gallery.html`;
-} else {
-    alert("Publish Album failed");
-}
+    window.location.href = `http://www.photospotco.com/gallery.html?subdomain=${subdomain}`;
+// } else {
+//     alert("Publish Album failed");
+// }
 
 }
 

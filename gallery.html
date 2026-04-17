@@ -97,7 +97,7 @@
       const params = new URLSearchParams(window.location.search);
       const subdomain = params.get('subdomain');
 
-      const res = await fetch(`http://localhost:3001/api/list-photos-r2?subdomain=${subdomain}`);
+      const res = await fetch(`/api/list-photos-r2?subdomain=${subdomain}`);
       const photos = await res.json();
 
       console.log("photos:", photos);

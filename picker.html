@@ -271,7 +271,7 @@ const data = await res.json();
     const metadata = await resp.json();
     
     downloadPhotos(metadata, subdomain);
-    window.location.href = `http://www.photospotco.com/gallery.html?subdomain=${subdomain}`;
+    window.location.href = `/gallery.html?subdomain=${subdomain}`;
 // } else {
 //     alert("Publish Album failed");
 // }
@@ -299,7 +299,7 @@ if (!subdomain) return;
 
 // if (data.success) {
     sessionStorage.setItem("accessToken", accessToken);
-    window.location.href = `http://www.photospotco.com/gallery.html?subdomain=${subdomain}`;
+    window.location.href = `/gallery.html?subdomain=${subdomain}`;
 // } else {
 //     alert("Publish Album failed");
 // }

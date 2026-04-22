@@ -48,6 +48,7 @@
    let accessToken = null;
    let sessionId = null;
    let pickerWindow = null;
+   const appToken = localStorage.getItem("appToken");
 
 
    function startAuth() {
@@ -138,7 +139,8 @@ async function fetchSelectedPhotos() {
       // 🔹 Send metadata to backend
       await fetch("/api/save-metadata", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" ,
+        Authorization: `Bearer ${appToken}`},
         body: JSON.stringify(metadata)
       });
 
@@ -158,6 +160,7 @@ async function fetchSelectedPhotos() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${appToken}`
         },
         body: JSON.stringify({
           subdomain: subdomain,
@@ -247,23 +250,25 @@ const subdomain = prompt("Choose your gallery URL (subdomain)");
 
 if (!subdomain) return;
 
-const res = await fetch("/api/publish-album", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ subdomain: subdomain,
-          accessToken: accessToken, })
-});
+// const res = await fetch("/api/publish-album", {
+//   method: "POST",
+//   headers: {
+//     "Content-Type": "application/json",
+//     Authorization: `Bearer ${appToken}`
+//   },
+//   body: JSON.stringify({ subdomain: subdomain,
+//           accessToken: accessToken, })
+// });
 
-const data = await res.json();
+// const data = await res.json();
 
 // if (data.success) {
     sessionStorage.setItem("accessToken", accessToken);
     const resp = await fetch("/api/get-metadata", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${appToken}`
       },
       body: JSON.stringify({ subdomain: subdomain})
     });
@@ -271,9 +276,19 @@ const data = await res.json();
     const metadata = await resp.json();
     
     downloadPhotos(metadata, subdomain);
-    window.location.href = `/gallery.html?subdomain=${subdomain}`;
+    const host = window.location.hostname; // monika.lvh.me or photospot.com
+    const parts = host.split(".");
+
+    // handle cases like:
+    // monika.lvh.me → lvh.me
+    // photospot.com → photospot.com
+
+    const rootDomain =
+      parts.length > 2 ? parts.slice(-2).join(".") : host;
+
+    window.location.href = `https://${subdomain}.${rootDomain}/gallery.html`;
 // } else {
-//     alert("Publish Album failed");
+//      alert("Publish Album failed");
 // }
 
 }
@@ -298,8 +313,17 @@ if (!subdomain) return;
 // const data = await res.json();
 
 // if (data.success) {
+    const host = window.location.hostname; // monika.lvh.me or photospot.com
+
+    const parts = host.split(".");
+
+    // handle cases like:
+    // monika.lvh.me → lvh.me
+    // photospot.com → photospot.com
+
+    const rootDomain = parts.length > 2 ? parts.slice(-2).join(".") : host;
     sessionStorage.setItem("accessToken", accessToken);
-    window.location.href = `/gallery.html?subdomain=${subdomain}`;
+    window.location.href = `https://${subdomain}.${rootDomain}/gallery.html`;
 // } else {
 //     alert("Publish Album failed");
 // }

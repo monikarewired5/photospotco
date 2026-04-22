@@ -1,12 +1,15 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { GetObjectCommand, ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const jwt = require("jsonwebtoken");
 const dotenv = require('dotenv');
 
 
 const express = require('express');
 const { OAuth2Client } = require('google-auth-library');
 const cors = require('cors');
+const { randomUUID } = require("crypto");
+
 
 
 const app = express();
@@ -20,7 +23,32 @@ app.use(cors());
 app.use(express.json());
 app.use("/galleries", express.static(path.join(__dirname, "galleries")));
 
-const CLIENT_ID = '971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com';
+app.use((req, res, next) => {
+  req.requestId = req.headers["x-request-id"] || randomUUID();
+  res.setHeader("X-Request-ID", req.requestId);
+  next();
+});
+
+app.use((req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log("auth header in request: ", authHeader);
+
+  if (authHeader?.startsWith("Bearer ")) {
+    const appToken = authHeader.split(" ")[1];
+
+    try {
+      const decoded = jwt.verify(appToken, process.env.JWT_SECRET);
+      console.log("decoded request: ", decoded);
+      req.userId = decoded.userId;
+    } catch {
+      req.userId = null;
+    }
+  }
+
+  next();
+});
+
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 
 const oauth2Client = new OAuth2Client(CLIENT_ID);
 
@@ -41,6 +69,9 @@ app.post('/api/auth/google', async(req, res) => {
             audience: CLIENT_ID,
         });
         const payload = ticket.getPayload();
+        // ⚡ Your user identity
+        const userId = payload.sub;
+
         const user = {
             name: payload.name,
             email: payload.email,
@@ -48,9 +79,19 @@ app.post('/api/auth/google', async(req, res) => {
         };
 
         console.log("User logged in: ", user);
+
+        const appToken = jwt.sign(
+          { userId },
+          process.env.JWT_SECRET,
+          { expiresIn: "7d" }
+        );
+
+        console.log("application token:", appToken);
+
         res.json({ 
             success: true,
-            user: user
+            user: user,
+            appToken: appToken 
         });
     } catch (error) {
         console.error("Error verifying Google ID token: ", error);
@@ -65,8 +106,21 @@ app.post('/api/auth/google', async(req, res) => {
 
 app.post("/api/save-metadata", (req, res) => {
 
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+
+    const publishId = randomUUID();
+
+    const dir = path.join("galleries", req.userId, "publish");
+    //✅ Ensure folder exists (FIXED ORDER)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
     const newPhotos = req.body;
-    metadataFile = "./photos.json";
+    metadataFile = path.join(dir, `${publishId}.json`);
   
     let existingPhotos = [];
   
@@ -104,27 +158,25 @@ app.post("/api/get-metadata", (req, res) => {
   console.log("i am in get-metadata");
   const { subdomain } = req.body;
 
-  metadataFile = `./galleries/${subdomain}/${subdomain}.json`;
-  console.log("metadataFile: ", metadataFile)
-  
+  const galleryFolder = path.join("galleries", req.userId, "publish");
+  const files = fs.readdirSync(galleryFolder);
+  const jsonFiles = files.filter(file => file.endsWith(".json"));
+
+  const photos = [];
+
   try {
-    // 🔹 If file doesn't exist, return empty array
-    if (!fs.existsSync(metadataFile)) {
-      return res.json({
-        status: "success",
-        data: [],
-        totalPhotos: 0
-      });
-    } else {
-      console.log("file does not exist")
+
+    for (const metadataFile of jsonFiles) {
+      const metadataFilePath = path.join(galleryFolder, metadataFile);
+      const data = fs.readFileSync(metadataFilePath, "utf8");
+      console.log("metadataFile: ", metadataFilePath)
+      const photoData = data ? JSON.parse(data) : [];
+      photos.push(...photoData);
+
+      // ✅ delete AFTER successful processing
+      fs.unlinkSync(metadataFilePath);
     }
-
-    // 🔹 Read file
-    const data = fs.readFileSync(metadataFile, "utf8");
-
-    // 🔹 Parse JSON safely
-    const photos = data ? JSON.parse(data) : [];
-
+    console.log("total photos read: ", photos.length)
     res.json({
       status: "success",
       data: photos,
@@ -158,7 +210,7 @@ app.post("/api/get-metadata", (req, res) => {
   
       const results = await Promise.all(
         mediaItems.map((item) =>
-          downloadPhoto({ item, folder })
+          downloadPhoto({ item, folder , subdomain})
         )
       );
   
@@ -171,12 +223,12 @@ app.post("/api/get-metadata", (req, res) => {
   });
 
 
-async function downloadPhoto({ item, folder }) {
+async function downloadPhoto({ item, folder, subdomain}) {
   try {
     // ✅ Use correct URL format
     const url = item.baseUrl + "=d"; 
     const accessToken = item.accessToken
-    console.log("accessToken: ", accessToken)
+    console.log("subdomain: ", subdomain)
     // "=d" can be unreliable → use size instead
 
     const filename = `${item.id}.jpg`; // safer naming
@@ -201,7 +253,7 @@ async function downloadPhoto({ item, folder }) {
 
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
-      Key: `albums/monika/${Date.now()}_${filename}`,
+      Key: `albums/${subdomain}/${Date.now()}_${filename}`,
       Body: buffer, // 👈 stream directly
       ContentType: response.headers.get("content-type"),
     });
@@ -209,8 +261,6 @@ async function downloadPhoto({ item, folder }) {
     console.log("Uploaded to R2");
 
     await s3.send(command);
-
-    res.send("Uploaded to R2");
 
     // // ✅ Ensure folder exists
     // if (!fs.existsSync(folder)) {
@@ -268,53 +318,67 @@ async function downloadPhoto({ item, folder }) {
     res.json(photos);
   });
 
-  app.post("/api/publish-album", async (req, res) => {
-    try {
-      const { subdomain, accessToken } = req.body;
+  // app.post("/api/publish-album", async (req, res) => {
+  //   try {
+  //     if (!req.userId) {
+  //       return res.status(401).json({ message: "Unauthorized" });
+  //     }
+
+  //     const { subdomain, accessToken } = req.body;
+
+  //     const galleryFolder = path.join(__dirname, "galleries", req.userId,"publish");
+  //     // ✅ Ensure folder exists (FIXED ORDER)
+  //     if (!fs.existsSync(galleryFolder)) {
+  //       fs.mkdirSync(galleryFolder, { recursive: true });
+  //     }
+  //     const gallerySubdomainFolder = path.join(__dirname, "galleries", req.userId,`${subdomain}`);
+  //     // ✅ Ensure folder exists (FIXED ORDER)
+  //     if (!fs.existsSync(gallerySubdomainFolder)) {
+  //       fs.mkdirSync(gallerySubdomainFolder, { recursive: true });
+  //     }
+  //     const files = await fs.readdir(galleryFolder);
+  //     const jsonFiles = files.filter(file => file.endsWith(".json"));
+
+  //     const galleryFile = path.join(gallerySubdomainFolder, `${subdomain}.json`);
   
-      const photosFile = path.join(__dirname, "photos.json");
-      const galleryFolder = path.join(__dirname, "galleries", subdomain);
-      const galleryFile = path.join(galleryFolder, `${subdomain}.json`);
+  //     // ❌ No photos file
+  //     if (jsonFiles.length <= 0) {
+  //       return res.json({ success: false, error: "No photos found" });
+  //     }
   
-      // ❌ No photos file
-      if (!fs.existsSync(photosFile)) {
-        return res.json({ success: false, error: "No photos found" });
-      }
+  //     const photos = [];
+
+  //     // ✅ Read selected photos
+  //     for (const file of jsonFiles) {
+  //       const filePath = path.join(galleryFolder, file);
+  //       const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  //       photos.push(data);
+  //       // 🔥 DELETE publishId.json after successful publish
+  //     try {
+  //       fs.unlinkSync(filePath);
+  //       console.log(`${filePath} deleted after publish`);
+  //     } catch (deleteErr) {
+  //       console.error(`Failed to delete ${filePath}`, deleteErr);
+  //       // Not blocking response — publish already succeeded
+  //     }
+  //   }
   
-      // ✅ Read selected photos
-      const photos = JSON.parse(fs.readFileSync(photosFile, "utf8"));
+  //     // ✅ Save metadata per subdomain
+  //     fs.writeFileSync(
+  //       galleryFile,
+  //       JSON.stringify(photos, null, 2)
+  //     );      
+  //     // 🚀 Response
+  //     res.json({
+  //       success: true,
+  //       url: `${subdomain}.photospotco.com`
+  //     });
   
-      // ✅ Ensure folder exists (FIXED ORDER)
-      if (!fs.existsSync(galleryFolder)) {
-        fs.mkdirSync(galleryFolder, { recursive: true });
-      }
-  
-      // ✅ Save metadata per subdomain
-      fs.writeFileSync(
-        galleryFile,
-        JSON.stringify(photos, null, 2)
-      );
-  
-      // 🔥 DELETE photos.json after successful publish
-      try {
-        fs.unlinkSync(photosFile);
-        console.log("photos.json deleted after publish");
-      } catch (deleteErr) {
-        console.error("Failed to delete photos.json:", deleteErr);
-        // Not blocking response — publish already succeeded
-      }
-  
-      // 🚀 Response
-      res.json({
-        success: true,
-        url: `${subdomain}.photospotco.com`
-      });
-  
-    } catch (err) {
-      console.error("Publish error:", err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
+  //   } catch (err) {
+  //     console.error("Publish error:", err);
+  //     res.status(500).json({ success: false, error: err.message });
+  //   }
+  // });
 
   app.post("/api/view-album", async (req, res) => {
     try {
@@ -335,7 +399,8 @@ async function downloadPhoto({ item, folder }) {
         galleryPhotos.map(item =>
           downloadPhoto({
             item,
-            folder: galleryFolder
+            folder: galleryFolder,
+            subdomain
           })
         )
       );

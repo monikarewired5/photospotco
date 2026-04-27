@@ -1,21 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photospotco</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login</title>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* 🔥 5x6 Grid */
+    .bg-grid {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    }
+
+    .bg-grid img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+
+        filter: brightness(0.75) contrast(0.95) saturate(0.9);
+    }
+
+    /* 🌑 overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(
+        rgba(10,10,10,0.55),
+        rgba(10,10,10,0.7)
+      );
+      z-index: -1;
+    }
+
+    /* ✨ login card */
+    .container {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      padding: 44px 36px;
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+      text-align: center;
+      width: 100%;
+      max-width: 380px;
+      animation: fadeIn 0.7s ease;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 26px;
+      line-height: 1.5;
+    }
+
+    .g_id_signin {
+      display: flex;
+      justify-content: center;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
 </head>
+
 <body>
-    <h2>Login to Photospotco</h2>
+
+  <div class="bg-grid" id="bgGrid"></div>
+  <div class="overlay"></div>
+
+  <div class="container">
+    <div class="logo">Photospotco</div>
+    <div class="subtitle">
+      A place for the moments that matter —<br/>
+      quietly kept, beautifully remembered
+    </div>
+
     <div id="g_id_onload"
-     data-client_id="971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com"
-     data-callback="handleCredentialResponse"></div>
-    <div class="g_id_signin" data-type="standard"></div>
+      data-client_id="971008334675-8vos5giv60opfnbaeh1oaqjljm121tel.apps.googleusercontent.com"
+      data-callback="handleCredentialResponse">
+    </div>
 
-    <script>
+    <div class="g_id_signin" data-type="standard" data-size="large"></div>
+  </div>
 
-        function handleCredentialResponse(response) {
+  <script>
+    const grid = document.getElementById("bgGrid");
+  
+    const images = [
+  
+      // 💍 Wedding (6)
+      "https://images.pexels.com/photos/2959192/pexels-photo-2959192.jpeg",
+      "https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg",
+      "https://images.pexels.com/photos/169198/pexels-photo-169198.jpeg",
+      "https://images.pexels.com/photos/3014856/pexels-photo-3014856.jpeg",
+      "https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg",
+      "https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg",
+  
+      // 👨‍👩‍👧‍👦 Family (6)
+      "https://images.pexels.com/photos/2253879/pexels-photo-2253879.jpeg",
+      "https://images.pexels.com/photos/1648377/pexels-photo-1648377.jpeg",
+      "https://images.pexels.com/photos/3763585/pexels-photo-3763585.jpeg",
+      "https://images.pexels.com/photos/265920/pexels-photo-265920.jpeg",
+      "https://images.pexels.com/photos/1257110/pexels-photo-1257110.jpeg",
+      "https://images.pexels.com/photos/3184418/pexels-photo-3184418.jpeg",
+  
+      // 👫 Friends / fun (6)
+      "https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg",
+      "https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg",
+      "https://images.pexels.com/photos/1543793/pexels-photo-1543793.jpeg",
+      "https://images.pexels.com/photos/1308881/pexels-photo-1308881.jpeg",
+      "https://images.pexels.com/photos/1595385/pexels-photo-1595385.jpeg",
+      "https://images.pexels.com/photos/936119/pexels-photo-936119.jpeg",
+  
+      // ✈️ Travel (6)
+      "https://images.pexels.com/photos/21014/pexels-photo.jpg",
+      "https://images.pexels.com/photos/672532/pexels-photo-672532.jpeg",
+      "https://images.pexels.com/photos/346885/pexels-photo-346885.jpeg",
+      "https://images.pexels.com/photos/753626/pexels-photo-753626.jpeg",
+      "https://images.pexels.com/photos/1671325/pexels-photo-1671325.jpeg",
+      "https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg",
+  
+      // 🎉 Festivals / celebration (6)
+      "https://images.pexels.com/photos/888967/pexels-photo-888967.jpeg",
+      "https://images.pexels.com/photos/1619317/pexels-photo-1619317.jpeg",
+      "https://images.pexels.com/photos/1704120/pexels-photo-1704120.jpeg",
+      "https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg",
+      "https://images.pexels.com/photos/1695052/pexels-photo-1695052.jpeg",
+      "https://images.pexels.com/photos/1587927/pexels-photo-1587927.jpeg"
+    ];
+  
+    images.forEach(src => {
+      const img = document.createElement("img");
+  
+      // optimize loading
+      img.src = src + "?auto=compress&cs=tinysrgb&w=600";
+      img.loading = "lazy";
+  
+      grid.appendChild(img);
+    });
+
+    function handleCredentialResponse(response) {
             console.log("Encoded JWT ID token: " + response.credential);
         
             fetch('/api/auth/google', {
@@ -33,9 +189,9 @@
                     alert("Login failed: " + data.message);
                 }
             });
-        }
-        
-        </script>
+    }
+
+  </script>
 
 </body>
 </html>
